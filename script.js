@@ -1,6 +1,7 @@
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
+const levelElement = document.getElementById('level');
 const finalScoreElement = document.getElementById('final-score');
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
@@ -13,6 +14,7 @@ let tileCountX = 20;
 let tileCountY = 20;
 
 let score = 0;
+let level = 1;
 let gameLoop;
 let gameSpeed = 100;
 
@@ -22,6 +24,15 @@ let dx = 0;
 let dy = 0;
 let nextDx = 0;
 let nextDy = 0;
+
+// Level Configuration
+const levels = [
+    { score: 0, speed: 100, color: '#00ff88', food: '#ff0055' },   // Lvl 1: Green (Classic)
+    { score: 50, speed: 90, color: '#00ffff', food: '#ffaa00' },   // Lvl 2: Cyan
+    { score: 100, speed: 80, color: '#ff00ff', food: '#00ff00' },  // Lvl 3: Magenta
+    { score: 150, speed: 70, color: '#ffff00', food: '#0000ff' },  // Lvl 4: Yellow
+    { score: 200, speed: 60, color: '#ff0000', food: '#ffffff' }   // Lvl 5: Red (Hard)
+];
 
 // Sound Manager
 class SoundManager {
@@ -33,6 +44,7 @@ class SoundManager {
         if (!this.context) {
             this.context = new (window.AudioContext || window.webkitAudioContext)();
         }
+        // iOS Fix: Resume context on user interaction
         if (this.context.state === 'suspended') {
             this.context.resume();
         }
@@ -40,6 +52,10 @@ class SoundManager {
 
     playTone(frequency, type, duration, volume = 0.1) {
         if (!this.context) return;
+        // Ensure context is running (double check for iOS)
+        if (this.context.state === 'suspended') {
+            this.context.resume();
+        }
 
         const osc = this.context.createOscillator();
         const gain = this.context.createGain();
@@ -58,8 +74,8 @@ class SoundManager {
     }
 
     playEatSound() {
-        this.playTone(600, 'sine', 0.1, 0.1);
-        setTimeout(() => this.playTone(800, 'sine', 0.1, 0.1), 50);
+        this.playTone(600 + (level * 50), 'sine', 0.1, 0.1);
+        setTimeout(() => this.playTone(800 + (level * 50), 'sine', 0.1, 0.1), 50);
     }
 
     playGameOverSound() {
@@ -73,6 +89,13 @@ class SoundManager {
         setTimeout(() => this.playTone(600, 'square', 0.1, 0.1), 100);
         setTimeout(() => this.playTone(800, 'square', 0.2, 0.1), 200);
     }
+
+    playLevelUpSound() {
+        this.playTone(500, 'square', 0.1, 0.1);
+        setTimeout(() => this.playTone(700, 'square', 0.1, 0.1), 100);
+        setTimeout(() => this.playTone(900, 'square', 0.1, 0.1), 200);
+        setTimeout(() => this.playTone(1200, 'square', 0.3, 0.1), 300);
+    }
 }
 
 const soundManager = new SoundManager();
@@ -81,24 +104,45 @@ function resizeGame() {
     const containerWidth = gameContainer.clientWidth;
     const containerHeight = gameContainer.clientHeight;
 
-    // Calculate max tiles that fit
     tileCountX = Math.floor(containerWidth / GRID_SIZE);
     tileCountY = Math.floor(containerHeight / GRID_SIZE);
 
-    // Set canvas size to exact multiple of grid size to avoid blur/clipping
     canvas.width = tileCountX * GRID_SIZE;
     canvas.height = tileCountY * GRID_SIZE;
 
-    // Center canvas in container if there's leftover space
     canvas.style.marginLeft = `${(containerWidth - canvas.width) / 2}px`;
     canvas.style.marginTop = `${(containerHeight - canvas.height) / 2}px`;
 
     drawGame();
 }
 
+function updateLevel() {
+    // Find the highest level reached based on score
+    let currentLevelConfig = levels[0];
+    let newLevel = 1;
+
+    for (let i = 0; i < levels.length; i++) {
+        if (score >= levels[i].score) {
+            currentLevelConfig = levels[i];
+            newLevel = i + 1;
+        }
+    }
+
+    if (newLevel > level) {
+        level = newLevel;
+        soundManager.playLevelUpSound();
+    }
+
+    levelElement.textContent = level;
+    gameSpeed = currentLevelConfig.speed;
+
+    // Update CSS Variables for Colors
+    document.documentElement.style.setProperty('--snake-color', currentLevelConfig.color);
+    document.documentElement.style.setProperty('--food-color', currentLevelConfig.food);
+}
+
 function initGame() {
     resizeGame();
-    // Start in the middle
     const startX = Math.floor(tileCountX / 2);
     const startY = Math.floor(tileCountY / 2);
 
@@ -108,11 +152,13 @@ function initGame() {
         { x: startX - 2, y: startY }
     ];
     score = 0;
+    level = 1;
     dx = 1;
     dy = 0;
     nextDx = 1;
     nextDy = 0;
     scoreElement.textContent = score;
+    updateLevel(); // Reset colors/speed
     spawnFood();
 }
 
@@ -120,7 +166,6 @@ function spawnFood() {
     food.x = Math.floor(Math.random() * tileCountX);
     food.y = Math.floor(Math.random() * tileCountY);
 
-    // Check if food spawns on snake
     for (let segment of snake) {
         if (segment.x === food.x && segment.y === food.y) {
             spawnFood();
@@ -157,19 +202,23 @@ function drawGrid() {
 }
 
 function drawGame() {
-    // Clear canvas
     ctx.fillStyle = '#1a1a24';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawGrid();
 
+    // Get current colors from CSS variables
+    const style = getComputedStyle(document.documentElement);
+    const snakeColor = style.getPropertyValue('--snake-color').trim();
+    const foodColor = style.getPropertyValue('--food-color').trim();
+
     // Draw Food
-    drawRect(food.x, food.y, '#ff0055', '#ff0055');
+    drawRect(food.x, food.y, foodColor, foodColor);
 
     // Draw Snake
     snake.forEach((segment, index) => {
-        const color = index === 0 ? '#ffffff' : '#00ff88'; // Head is white, body is green
-        drawRect(segment.x, segment.y, color, '#00ff88');
+        const color = index === 0 ? '#ffffff' : snakeColor;
+        drawRect(segment.x, segment.y, color, snakeColor);
     });
 }
 
@@ -179,13 +228,11 @@ function moveSnake() {
 
     const head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
-    // Wall Collision
     if (head.x < 0 || head.x >= tileCountX || head.y < 0 || head.y >= tileCountY) {
         gameOver();
         return;
     }
 
-    // Self Collision
     for (let segment of snake) {
         if (head.x === segment.x && head.y === segment.y) {
             gameOver();
@@ -195,14 +242,12 @@ function moveSnake() {
 
     snake.unshift(head);
 
-    // Check Food Collision
     if (head.x === food.x && head.y === food.y) {
         score += 10;
         scoreElement.textContent = score;
         soundManager.playEatSound();
+        updateLevel(); // Check for level up
         spawnFood();
-        // Increase speed slightly
-        if (gameSpeed > 50) gameSpeed -= 1;
     } else {
         snake.pop();
     }
@@ -210,7 +255,7 @@ function moveSnake() {
 
 function gameStep() {
     moveSnake();
-    if (!gameOverScreen.classList.contains('hidden')) return; // Stop if game over
+    if (!gameOverScreen.classList.contains('hidden')) return;
     drawGame();
     setTimeout(() => {
         if (!gameOverScreen.classList.contains('hidden')) return;
@@ -219,12 +264,13 @@ function gameStep() {
 }
 
 function startGame() {
+    // iOS Audio Fix: Init sound manager on user interaction
     soundManager.init();
     soundManager.playStartSound();
+
     initGame();
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
-    gameSpeed = 100;
     gameStep();
 }
 
@@ -234,65 +280,48 @@ function gameOver() {
     gameOverScreen.classList.remove('hidden');
 }
 
-// Input handling
 document.addEventListener('keydown', (e) => {
     switch (e.key) {
-        case 'ArrowUp':
-            if (dy === 0) { nextDx = 0; nextDy = -1; }
-            break;
-        case 'ArrowDown':
-            if (dy === 0) { nextDx = 0; nextDy = 1; }
-            break;
-        case 'ArrowLeft':
-            if (dx === 0) { nextDx = -1; nextDy = 0; }
-            break;
-        case 'ArrowRight':
-            if (dx === 0) { nextDx = 1; nextDy = 0; }
-            break;
+        case 'ArrowUp': if (dy === 0) { nextDx = 0; nextDy = -1; } break;
+        case 'ArrowDown': if (dy === 0) { nextDx = 0; nextDy = 1; } break;
+        case 'ArrowLeft': if (dx === 0) { nextDx = -1; nextDy = 0; } break;
+        case 'ArrowRight': if (dx === 0) { nextDx = 1; nextDy = 0; } break;
     }
 });
 
-// Touch handling
 let touchStartX = 0;
 let touchStartY = 0;
 
 document.addEventListener('touchstart', (e) => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
+    // iOS Audio Fix: Try to resume context on any touch
+    if (soundManager.context && soundManager.context.state === 'suspended') {
+        soundManager.context.resume();
+    }
 }, { passive: false });
 
 document.addEventListener('touchmove', (e) => {
-    e.preventDefault(); // Prevent scrolling while playing
+    e.preventDefault();
 }, { passive: false });
 
 document.addEventListener('touchend', (e) => {
     const touchEndX = e.changedTouches[0].clientX;
     const touchEndY = e.changedTouches[0].clientY;
-
     const diffX = touchEndX - touchStartX;
     const diffY = touchEndY - touchStartY;
 
     if (Math.abs(diffX) > Math.abs(diffY)) {
-        // Horizontal swipe
-        if (diffX > 0 && dx === 0) {
-            nextDx = 1; nextDy = 0; // Right
-        } else if (diffX < 0 && dx === 0) {
-            nextDx = -1; nextDy = 0; // Left
-        }
+        if (diffX > 0 && dx === 0) { nextDx = 1; nextDy = 0; }
+        else if (diffX < 0 && dx === 0) { nextDx = -1; nextDy = 0; }
     } else {
-        // Vertical swipe
-        if (diffY > 0 && dy === 0) {
-            nextDx = 0; nextDy = 1; // Down
-        } else if (diffY < 0 && dy === 0) {
-            nextDx = 0; nextDy = -1; // Up
-        }
+        if (diffY > 0 && dy === 0) { nextDx = 0; nextDy = 1; }
+        else if (diffY < 0 && dy === 0) { nextDx = 0; nextDy = -1; }
     }
 });
 
-// Handle window resize
 window.addEventListener('resize', () => {
     resizeGame();
-    // If game is not running (start screen or game over), make sure we redraw
     if (!startScreen.classList.contains('hidden') || !gameOverScreen.classList.contains('hidden')) {
         drawGame();
     }
@@ -301,6 +330,5 @@ window.addEventListener('resize', () => {
 startBtn.addEventListener('click', startGame);
 restartBtn.addEventListener('click', startGame);
 
-// Initial setup
 resizeGame();
 drawGame();
