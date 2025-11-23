@@ -6,9 +6,11 @@ const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
 const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
+const gameContainer = document.querySelector('.game-container');
 
 const GRID_SIZE = 20;
-const TILE_COUNT = canvas.width / GRID_SIZE;
+let tileCountX = 20;
+let tileCountY = 20;
 
 let score = 0;
 let gameLoop;
@@ -25,8 +27,6 @@ let nextDy = 0;
 class SoundManager {
     constructor() {
         this.context = null;
-        this.oscillator = null;
-        this.gainNode = null;
     }
 
     init() {
@@ -77,11 +77,35 @@ class SoundManager {
 
 const soundManager = new SoundManager();
 
+function resizeGame() {
+    const containerWidth = gameContainer.clientWidth;
+    const containerHeight = gameContainer.clientHeight;
+
+    // Calculate max tiles that fit
+    tileCountX = Math.floor(containerWidth / GRID_SIZE);
+    tileCountY = Math.floor(containerHeight / GRID_SIZE);
+
+    // Set canvas size to exact multiple of grid size to avoid blur/clipping
+    canvas.width = tileCountX * GRID_SIZE;
+    canvas.height = tileCountY * GRID_SIZE;
+
+    // Center canvas in container if there's leftover space
+    canvas.style.marginLeft = `${(containerWidth - canvas.width) / 2}px`;
+    canvas.style.marginTop = `${(containerHeight - canvas.height) / 2}px`;
+
+    drawGame();
+}
+
 function initGame() {
+    resizeGame();
+    // Start in the middle
+    const startX = Math.floor(tileCountX / 2);
+    const startY = Math.floor(tileCountY / 2);
+
     snake = [
-        { x: 10, y: 10 },
-        { x: 9, y: 10 },
-        { x: 8, y: 10 }
+        { x: startX, y: startY },
+        { x: startX - 1, y: startY },
+        { x: startX - 2, y: startY }
     ];
     score = 0;
     dx = 1;
@@ -93,8 +117,8 @@ function initGame() {
 }
 
 function spawnFood() {
-    food.x = Math.floor(Math.random() * TILE_COUNT);
-    food.y = Math.floor(Math.random() * TILE_COUNT);
+    food.x = Math.floor(Math.random() * tileCountX);
+    food.y = Math.floor(Math.random() * tileCountY);
 
     // Check if food spawns on snake
     for (let segment of snake) {
@@ -113,10 +137,31 @@ function drawRect(x, y, color, shadowColor) {
     ctx.shadowBlur = 0;
 }
 
+function drawGrid() {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x <= canvas.width; x += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+
+    for (let y = 0; y <= canvas.height; y += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+}
+
 function drawGame() {
     // Clear canvas
-    ctx.fillStyle = '#1a1a24'; // Match grid color for clean clear
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#1a1a24';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawGrid();
 
     // Draw Food
     drawRect(food.x, food.y, '#ff0055', '#ff0055');
@@ -135,7 +180,7 @@ function moveSnake() {
     const head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
     // Wall Collision
-    if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
+    if (head.x < 0 || head.x >= tileCountX || head.y < 0 || head.y >= tileCountY) {
         gameOver();
         return;
     }
@@ -244,8 +289,18 @@ document.addEventListener('touchend', (e) => {
     }
 });
 
+// Handle window resize
+window.addEventListener('resize', () => {
+    resizeGame();
+    // If game is not running (start screen or game over), make sure we redraw
+    if (!startScreen.classList.contains('hidden') || !gameOverScreen.classList.contains('hidden')) {
+        drawGame();
+    }
+});
+
 startBtn.addEventListener('click', startGame);
 restartBtn.addEventListener('click', startGame);
 
-// Initial draw
+// Initial setup
+resizeGame();
 drawGame();
