@@ -35,42 +35,55 @@ const levels = [
 ];
 
 // Sound Manager
+// SoundManager with Error Handling
 class SoundManager {
     constructor() {
         this.context = null;
+        this.enabled = true;
     }
 
     init() {
-        if (!this.context) {
-            this.context = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        // iOS Fix: Resume context on user interaction
-        if (this.context.state === 'suspended') {
-            this.context.resume();
+        try {
+            if (!this.context) {
+                this.context = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            // iOS Fix: Resume context on user interaction
+            if (this.context.state === 'suspended') {
+                this.context.resume().catch(e => console.warn("Audio resume failed:", e));
+            }
+        } catch (e) {
+            console.warn("AudioContext not supported or failed to init:", e);
+            this.enabled = false;
         }
     }
 
     playTone(frequency, type, duration, volume = 0.1) {
-        if (!this.context) return;
-        // Ensure context is running (double check for iOS)
-        if (this.context.state === 'suspended') {
-            this.context.resume();
+        if (!this.enabled || !this.context) return;
+
+        try {
+            // Ensure context is running (double check for iOS)
+            if (this.context.state === 'suspended') {
+                this.context.resume().catch(() => { });
+            }
+
+            const osc = this.context.createOscillator();
+            const gain = this.context.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(frequency, this.context.currentTime);
+
+            gain.gain.setValueAtTime(volume, this.context.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
+
+            osc.connect(gain);
+            gain.connect(this.context.destination);
+
+            osc.start();
+            osc.stop(this.context.currentTime + duration);
+        } catch (e) {
+            console.warn("Error playing sound:", e);
+            // Don't disable globally on single play error, but be safe
         }
-
-        const osc = this.context.createOscillator();
-        const gain = this.context.createGain();
-
-        osc.type = type;
-        osc.frequency.setValueAtTime(frequency, this.context.currentTime);
-
-        gain.gain.setValueAtTime(volume, this.context.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
-
-        osc.connect(gain);
-        gain.connect(this.context.destination);
-
-        osc.start();
-        osc.stop(this.context.currentTime + duration);
     }
 
     playEatSound() {
@@ -104,8 +117,9 @@ function resizeGame() {
     const containerWidth = gameContainer.clientWidth;
     const containerHeight = gameContainer.clientHeight;
 
-    tileCountX = Math.floor(containerWidth / GRID_SIZE);
-    tileCountY = Math.floor(containerHeight / GRID_SIZE);
+    // Ensure minimum grid size to prevent division by zero or infinite loops
+    tileCountX = Math.max(10, Math.floor(containerWidth / GRID_SIZE));
+    tileCountY = Math.max(10, Math.floor(containerHeight / GRID_SIZE));
 
     canvas.width = tileCountX * GRID_SIZE;
     canvas.height = tileCountY * GRID_SIZE;
@@ -163,14 +177,28 @@ function initGame() {
 }
 
 function spawnFood() {
-    food.x = Math.floor(Math.random() * tileCountX);
-    food.y = Math.floor(Math.random() * tileCountY);
+    let validPosition = false;
+    let attempts = 0;
+    const maxAttempts = 100;
 
-    for (let segment of snake) {
-        if (segment.x === food.x && segment.y === food.y) {
-            spawnFood();
-            break;
+    while (!validPosition && attempts < maxAttempts) {
+        food.x = Math.floor(Math.random() * tileCountX);
+        food.y = Math.floor(Math.random() * tileCountY);
+
+        validPosition = true;
+        for (let segment of snake) {
+            if (segment.x === food.x && segment.y === food.y) {
+                validPosition = false;
+                break;
+            }
         }
+        attempts++;
+    }
+
+    // If we couldn't find a valid position after maxAttempts, just place it at 0,0 or ignore collision to prevent crash
+    if (!validPosition) {
+        food.x = 0;
+        food.y = 0;
     }
 }
 
