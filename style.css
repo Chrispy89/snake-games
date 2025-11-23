@@ -23,13 +23,34 @@ body {
     align-items: center;
     height: 100vh;
     overflow: hidden;
-    /* pointer-events: none; REMOVED THIS LINE */
 }
 
 .main-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 15px;
+    width: 100%;
+    padding: 10px;
+}
+
+.game-container {
+    position: relative;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+    overflow: hidden;
+    line-height: 0;
+    width: 100%;
+    /* Use the smaller of: 600px OR 70% of the viewport's smallest side */
+    /* This ensures it fits vertically in landscape and horizontally in portrait */
+    max-width: min(600px, 70vmin);
+    aspect-ratio: 1;
+}
+
+canvas {
+    background-color: var(--grid-color);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 20px 20px;
     display: block;
     width: 100%;
@@ -58,7 +79,8 @@ body {
 }
 
 .neon-text {
-    font-size: 3rem;
+    font-size: clamp(2rem, 5vw, 3rem);
+    /* Responsive font size */
     margin-bottom: 1rem;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.5),
         0 0 20px rgba(255, 255, 255, 0.3),
@@ -68,11 +90,11 @@ body {
 }
 
 .score-board {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
     background: rgba(255, 255, 255, 0.05);
-    padding: 10px 30px;
+    padding: 5px 20px;
     border-radius: 50px;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -103,4 +125,5 @@ p {
     font-size: 1.1rem;
     color: rgba(255, 255, 255, 0.8);
     text-align: center;
+    padding: 0 10px;
 }
