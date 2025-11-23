@@ -28,10 +28,10 @@ let nextDy = 0;
 // Level Configuration
 const levels = [
     { score: 0, speed: 100, color: '#00ff88', food: '#ff0055' },   // Lvl 1: Green (Classic)
-    { score: 50, speed: 90, color: '#00ffff', food: '#ffaa00' },   // Lvl 2: Cyan
-    { score: 100, speed: 80, color: '#ff00ff', food: '#00ff00' },  // Lvl 3: Magenta
-    { score: 150, speed: 70, color: '#ffff00', food: '#0000ff' },  // Lvl 4: Yellow
-    { score: 200, speed: 60, color: '#ff0000', food: '#ffffff' }   // Lvl 5: Red (Hard)
+    { score: 100, speed: 90, color: '#00ffff', food: '#ffaa00' },  // Lvl 2: Cyan
+    { score: 200, speed: 80, color: '#ff00ff', food: '#00ff00' },  // Lvl 3: Magenta
+    { score: 300, speed: 70, color: '#ffff00', food: '#0000ff' },  // Lvl 4: Yellow
+    { score: 400, speed: 60, color: '#ff0000', food: '#ffffff' }   // Lvl 5: Red (Hard)
 ];
 
 // Sound Manager
