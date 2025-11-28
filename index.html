@@ -21,12 +21,25 @@
             <div class="ui-overlay" id="start-screen">
                 <h1 class="neon-text">NEON SNAKE</h1>
                 <p>Usa las flechas o desliza para jugar</p>
+                <div class="leaderboard">
+                    <h3>MEJORES PUNTUACIONES</h3>
+                    <ul id="high-scores-list">
+                        <!-- Scores will be populated here -->
+                    </ul>
+                </div>
                 <button id="start-btn" class="neon-button">JUGAR</button>
             </div>
 
             <div class="ui-overlay hidden" id="game-over-screen">
                 <h2 class="neon-text">GAME OVER</h2>
                 <p>Puntuación: <span id="final-score">0</span></p>
+
+                <div id="high-score-input" class="hidden">
+                    <p class="new-record">¡NUEVO RÉCORD!</p>
+                    <input type="text" id="player-name" placeholder="Tu Nombre" maxlength="10">
+                    <button id="save-score-btn" class="neon-button small">GUARDAR</button>
+                </div>
+
                 <button id="restart-btn" class="neon-button">REINTENTAR</button>
             </div>
 

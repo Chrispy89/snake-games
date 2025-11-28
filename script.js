@@ -27,11 +27,16 @@ let nextDy = 0;
 
 // Level Configuration
 const levels = [
-    { score: 0, speed: 100, color: '#00ff88', food: '#ff0055' },   // Lvl 1: Green (Classic)
-    { score: 100, speed: 90, color: '#00ffff', food: '#ffaa00' },  // Lvl 2: Cyan
-    { score: 200, speed: 80, color: '#ff00ff', food: '#00ff00' },  // Lvl 3: Magenta
-    { score: 300, speed: 70, color: '#ffff00', food: '#0000ff' },  // Lvl 4: Yellow
-    { score: 400, speed: 60, color: '#ff0000', food: '#ffffff' }   // Lvl 5: Red (Hard)
+    { score: 0, speed: 150, color: '#00ff88', food: '#ff0055' },   // Lvl 1: Green (Classic) - Slower start
+    { score: 50, speed: 140, color: '#00ffff', food: '#ffaa00' },  // Lvl 2: Cyan
+    { score: 100, speed: 130, color: '#ff00ff', food: '#00ff00' }, // Lvl 3: Magenta
+    { score: 150, speed: 120, color: '#ffff00', food: '#0000ff' }, // Lvl 4: Yellow
+    { score: 200, speed: 110, color: '#ff0000', food: '#ffffff' }, // Lvl 5: Red
+    { score: 250, speed: 100, color: '#0088ff', food: '#ff8800' }, // Lvl 6: Blue
+    { score: 300, speed: 90, color: '#ff88ff', food: '#88ff00' },  // Lvl 7: Pink
+    { score: 350, speed: 80, color: '#88ffff', food: '#ff0088' },  // Lvl 8: Light Cyan
+    { score: 400, speed: 70, color: '#ffffff', food: '#8800ff' },  // Lvl 9: White
+    { score: 450, speed: 60, color: '#ff4444', food: '#44ff44' }   // Lvl 10: Intense Red (Extreme)
 ];
 
 // Sound Manager
@@ -111,7 +116,47 @@ class SoundManager {
     }
 }
 
+class LeaderboardManager {
+    constructor() {
+        this.storageKey = 'snake_leaderboard';
+        this.maxScores = 3;
+    }
+
+    getScores() {
+        const scores = localStorage.getItem(this.storageKey);
+        return scores ? JSON.parse(scores) : [];
+    }
+
+    isHighScore(score) {
+        const scores = this.getScores();
+        if (scores.length < this.maxScores) return true;
+        return score > scores[scores.length - 1].score;
+    }
+
+    addScore(name, score) {
+        const scores = this.getScores();
+        scores.push({ name, score });
+        scores.sort((a, b) => b.score - a.score);
+        if (scores.length > this.maxScores) {
+            scores.pop();
+        }
+        localStorage.setItem(this.storageKey, JSON.stringify(scores));
+        this.updateDisplay();
+    }
+
+    updateDisplay() {
+        const listElement = document.getElementById('high-scores-list');
+        if (!listElement) return;
+
+        const scores = this.getScores();
+        listElement.innerHTML = scores
+            .map((s, i) => `<li><span>${i + 1}. ${s.name}</span> <span>${s.score}</span></li>`)
+            .join('');
+    }
+}
+
 const soundManager = new SoundManager();
+const leaderboardManager = new LeaderboardManager();
 
 function resizeGame() {
     const containerWidth = gameContainer.clientWidth;
@@ -299,6 +344,7 @@ function startGame() {
     initGame();
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
+    leaderboardManager.updateDisplay(); // Ensure display is updated
     gameStep();
 }
 
@@ -306,7 +352,24 @@ function gameOver() {
     soundManager.playGameOverSound();
     finalScoreElement.textContent = score;
     gameOverScreen.classList.remove('hidden');
+
+    const highScoreInput = document.getElementById('high-score-input');
+    if (leaderboardManager.isHighScore(score)) {
+        highScoreInput.classList.remove('hidden');
+        document.getElementById('player-name').focus();
+    } else {
+        highScoreInput.classList.add('hidden');
+    }
 }
+
+document.getElementById('save-score-btn').addEventListener('click', () => {
+    const nameInput = document.getElementById('player-name');
+    const name = nameInput.value.trim() || 'Anonymous';
+    leaderboardManager.addScore(name, score);
+    document.getElementById('high-score-input').classList.add('hidden');
+    // Optional: Show leaderboard immediately or just restart
+    startGame();
+});
 
 document.addEventListener('keydown', (e) => {
     switch (e.key) {
@@ -359,4 +422,5 @@ startBtn.addEventListener('click', startGame);
 restartBtn.addEventListener('click', startGame);
 
 resizeGame();
+leaderboardManager.updateDisplay(); // Initial load
 drawGame();
